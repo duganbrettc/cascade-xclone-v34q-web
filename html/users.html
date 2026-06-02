@@ -27,7 +27,7 @@
             window.location.href = '/login';
         }
 
-        let myUserId = null;
+        let myUsername = null;
         const followState = {};
 
         async function loadUsers() {
@@ -43,9 +43,9 @@
                 }
                 const users = await usersRes.json();
                 const me = await meRes.json();
-                myUserId = me.user_id;
+                myUsername = me.username;
 
-                const others = users.filter(u => u.user_id !== myUserId);
+                const others = users.filter(u => u.username !== myUsername);
 
                 await Promise.all(others.map(async u => {
                     const sRes = await fetch('/api/follow/status?username=' + encodeURIComponent(u.username), {
@@ -59,7 +59,7 @@
                     }
                 }));
 
-                renderUsers(users, myUserId);
+                renderUsers(users, myUsername);
             } catch (e) {
                 document.getElementById('users-list').innerHTML = '<p class="error">Failed to load users.</p>';
             }
@@ -72,7 +72,7 @@
                 return;
             }
             list.innerHTML = users.map(u => {
-                const isMe = u.user_id === myId;
+                const isMe = u.username === myId;
                 const following = followState[u.username];
                 const followBtn = isMe ? '' : `
                     <button id="follow-btn-${u.username}"

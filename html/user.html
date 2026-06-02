@@ -29,6 +29,10 @@
         const pathParts = window.location.pathname.split('/');
         const username = pathParts[pathParts.length - 1];
 
+        // Show username immediately from URL before API resolves
+        document.title = 'XClone - @' + username;
+        document.getElementById('profile-title').textContent = '@' + username;
+
         async function loadUserProfile() {
             try {
                 const [profileRes, postsRes] = await Promise.all([
