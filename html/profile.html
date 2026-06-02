@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - Profile</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-brand">XClone</span>
+        <a href="/">Timeline</a>
+        <a href="/post">Post</a>
+        <a href="/profile">Profile</a>
+        <a href="/users">Users</a>
+        <button onclick="doLogout()">Logout</button>
+    </nav>
+    <div class="container">
+        <div class="card">
+            <h1>Your Profile</h1>
+            <form id="profile-form">
+                <div class="profile-field">
+                    <label for="display_name">Display Name</label>
+                    <input type="text" id="display_name" name="display_name" placeholder="Display name">
+                </div>
+                <div class="profile-field">
+                    <label for="bio">Bio</label>
+                    <textarea id="bio" name="bio" placeholder="Tell us about yourself"></textarea>
+                </div>
+                <div class="profile-field">
+                    <label for="password">New Password (leave blank to keep current)</label>
+                    <input type="password" id="password" name="password" autocomplete="new-password" placeholder="New password">
+                </div>
+                <button type="submit">Save Changes</button>
+                <p id="error-msg" class="error"></p>
+                <p id="success-msg" class="success"></p>
+            </form>
+        </div>
+    </div>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/users/me', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+                const me = await res.json();
+                document.getElementById('display_name').value = me.display_name || '';
+                document.getElementById('bio').value = me.bio || '';
+            } catch (e) {
+                document.getElementById('error-msg').textContent = 'Failed to load profile.';
+            }
+        }
+
+        document.getElementById('profile-form').addEventListener('submit', handleSubmit);
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const errEl = document.getElementById('error-msg');
+            const okEl = document.getElementById('success-msg');
+            errEl.textContent = '';
+            okEl.textContent = '';
+
+            const payload = {};
+            const displayName = document.getElementById('display_name').value.trim();
+            const bio = document.getElementById('bio').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (displayName) payload.display_name = displayName;
+            if (bio) payload.bio = bio;
+            if (password) payload.password = password;
+
+            try {
+                const res = await fetch('/api/users/me', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (res.status === 200) {
+                    okEl.textContent = 'Profile updated!';
+                    document.getElementById('password').value = '';
+                } else if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                } else {
+                    errEl.textContent = 'Failed to update profile.';
+                }
+            } catch (e) {
+                errEl.textContent = 'Network error. Please try again.';
+            }
+        }
+
+        function doLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>

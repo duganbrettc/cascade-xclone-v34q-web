@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - Users</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-brand">XClone</span>
+        <a href="/">Timeline</a>
+        <a href="/post">Post</a>
+        <a href="/profile">Profile</a>
+        <a href="/users">Users</a>
+        <button onclick="doLogout()">Logout</button>
+    </nav>
+    <div class="container">
+        <h1>All Users</h1>
+        <div class="card">
+            <div id="users-list">Loading...</div>
+        </div>
+    </div>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        let myUserId = null;
+        const followState = {};
+
+        async function loadUsers() {
+            try {
+                const [usersRes, meRes] = await Promise.all([
+                    fetch('/api/users', { headers: { 'Authorization': 'Bearer ' + token } }),
+                    fetch('/api/users/me', { headers: { 'Authorization': 'Bearer ' + token } })
+                ]);
+                if (usersRes.status === 401 || meRes.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+                const users = await usersRes.json();
+                const me = await meRes.json();
+                myUserId = me.user_id;
+
+                const others = users.filter(u => u.user_id !== myUserId);
+
+                await Promise.all(others.map(async u => {
+                    const sRes = await fetch('/api/follow/status?username=' + encodeURIComponent(u.username), {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (sRes.ok) {
+                        const s = await sRes.json();
+                        followState[u.username] = s.following;
+                    } else {
+                        followState[u.username] = false;
+                    }
+                }));
+
+                renderUsers(users, myUserId);
+            } catch (e) {
+                document.getElementById('users-list').innerHTML = '<p class="error">Failed to load users.</p>';
+            }
+        }
+
+        function renderUsers(users, myId) {
+            const list = document.getElementById('users-list');
+            if (!users || users.length === 0) {
+                list.innerHTML = '<p>No users found.</p>';
+                return;
+            }
+            list.innerHTML = users.map(u => {
+                const isMe = u.user_id === myId;
+                const following = followState[u.username];
+                const followBtn = isMe ? '' : `
+                    <button id="follow-btn-${u.username}"
+                        class="${following ? 'btn-unfollow' : 'btn-follow'}"
+                        onclick="toggleFollow('${u.username}')">
+                        ${following ? 'Unfollow' : 'Follow'}
+                    </button>
+                `;
+                return `
+                    <div class="user-row">
+                        <a href="/users/${u.username}" class="user-link">${u.display_name || u.username} (@${u.username})</a>
+                        ${followBtn}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function toggleFollow(username) {
+            const btn = document.getElementById('follow-btn-' + username);
+            const isFollowing = followState[username];
+            try {
+                const res = await fetch('/api/follow/' + encodeURIComponent(username), {
+                    method: isFollowing ? 'DELETE' : 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    followState[username] = !isFollowing;
+                    btn.textContent = followState[username] ? 'Unfollow' : 'Follow';
+                    btn.className = followState[username] ? 'btn-unfollow' : 'btn-follow';
+                }
+            } catch (e) {
+                console.error('Follow toggle failed', e);
+            }
+        }
+
+        function doLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+
+        loadUsers();
+    </script>
+</body>
+</html>

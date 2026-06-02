@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - New Post</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-brand">XClone</span>
+        <a href="/">Timeline</a>
+        <a href="/post">Post</a>
+        <a href="/profile">Profile</a>
+        <a href="/users">Users</a>
+        <button onclick="doLogout()">Logout</button>
+    </nav>
+    <div class="container">
+        <div class="card">
+            <h1>New Post</h1>
+            <form id="post-form">
+                <div>
+                    <label for="body">What's on your mind?</label>
+                    <textarea id="body" name="body" required maxlength="280" placeholder="Write something..."></textarea>
+                </div>
+                <button type="submit">Post</button>
+                <p id="error-msg" class="error"></p>
+                <p id="success-msg" class="success"></p>
+            </form>
+        </div>
+    </div>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        document.getElementById('post-form').addEventListener('submit', handleSubmit);
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const body = document.getElementById('body').value.trim();
+            const errEl = document.getElementById('error-msg');
+            const okEl = document.getElementById('success-msg');
+            errEl.textContent = '';
+            okEl.textContent = '';
+
+            if (!body) {
+                errEl.textContent = 'Post cannot be empty.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ body })
+                });
+                if (res.status === 201) {
+                    okEl.textContent = 'Posted!';
+                    document.getElementById('body').value = '';
+                    setTimeout(() => { window.location.href = '/'; }, 800);
+                } else if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                } else {
+                    errEl.textContent = 'Failed to post. Please try again.';
+                }
+            } catch (e) {
+                errEl.textContent = 'Network error. Please try again.';
+            }
+        }
+
+        function doLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

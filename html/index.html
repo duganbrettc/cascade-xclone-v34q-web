@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - Timeline</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-brand">XClone</span>
+        <a href="/">Timeline</a>
+        <a href="/post">Post</a>
+        <a href="/profile">Profile</a>
+        <a href="/users">Users</a>
+        <span id="nav-username"></span>
+        <button onclick="doLogout()">Logout</button>
+    </nav>
+    <div class="container">
+        <h1>Your Timeline</h1>
+        <div id="timeline"></div>
+    </div>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        async function loadTimeline() {
+            try {
+                const [tlRes, meRes] = await Promise.all([
+                    fetch('/api/timeline', { headers: { 'Authorization': 'Bearer ' + token } }),
+                    fetch('/api/users/me', { headers: { 'Authorization': 'Bearer ' + token } })
+                ]);
+                if (tlRes.status === 401 || meRes.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+                const posts = await tlRes.json();
+                const me = await meRes.json();
+                document.getElementById('nav-username').textContent = me.display_name || me.username;
+
+                const tl = document.getElementById('timeline');
+                if (!posts || posts.length === 0) {
+                    tl.innerHTML = '<p>No posts yet. Follow some users or <a href="/post">create a post</a>.</p>';
+                    return;
+                }
+                tl.innerHTML = posts.map(p => `
+                    <div class="post">
+                        <div class="post-author"><a href="/users/${p.username || ''}" class="user-link">${p.username || p.user_id}</a></div>
+                        <div class="post-time">${new Date(p.created_at).toLocaleString()}</div>
+                        <div class="post-body">${escapeHtml(p.body)}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('timeline').innerHTML = '<p class="error">Failed to load timeline.</p>';
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function doLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+
+        loadTimeline();
+    </script>
+</body>
+</html>

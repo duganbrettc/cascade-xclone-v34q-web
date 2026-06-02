@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - User Profile</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-brand">XClone</span>
+        <a href="/">Timeline</a>
+        <a href="/post">Post</a>
+        <a href="/profile">Profile</a>
+        <a href="/users">Users</a>
+        <button onclick="doLogout()">Logout</button>
+    </nav>
+    <div class="container">
+        <div class="card" id="profile-card">
+            <h1 id="profile-title">Loading...</h1>
+            <p id="profile-bio"></p>
+            <div id="follow-section" style="margin-top:12px"></div>
+        </div>
+        <h2>Posts</h2>
+        <div id="posts-list"></div>
+    </div>
+    <script>
+        const token = localStorage.getItem('token');
+        const pathParts = window.location.pathname.split('/');
+        const username = pathParts[pathParts.length - 1];
+
+        async function loadUserProfile() {
+            try {
+                const [profileRes, postsRes] = await Promise.all([
+                    fetch('/api/users/' + encodeURIComponent(username)),
+                    fetch('/api/posts/by/' + encodeURIComponent(username))
+                ]);
+
+                if (profileRes.status === 404) {
+                    document.getElementById('profile-title').textContent = 'User not found';
+                    return;
+                }
+
+                const profile = await profileRes.json();
+                document.title = 'XClone - ' + (profile.display_name || profile.username);
+                document.getElementById('profile-title').textContent =
+                    (profile.display_name || profile.username) + ' (@' + profile.username + ')';
+                document.getElementById('profile-bio').textContent = profile.bio || '';
+
+                if (token) {
+                    const meRes = await fetch('/api/users/me', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (meRes.ok) {
+                        const me = await meRes.json();
+                        if (me.username !== username) {
+                            const statusRes = await fetch('/api/follow/status?username=' + encodeURIComponent(username), {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            let following = false;
+                            if (statusRes.ok) {
+                                const s = await statusRes.json();
+                                following = s.following;
+                            }
+                            renderFollowButton(following);
+                        }
+                    }
+                }
+
+                const posts = postsRes.ok ? await postsRes.json() : [];
+                const postsList = document.getElementById('posts-list');
+                if (!posts || posts.length === 0) {
+                    postsList.innerHTML = '<p>No posts yet.</p>';
+                } else {
+                    postsList.innerHTML = posts.map(p => `
+                        <div class="post">
+                            <div class="post-time">${new Date(p.created_at).toLocaleString()}</div>
+                            <div class="post-body">${escapeHtml(p.body)}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                document.getElementById('profile-title').textContent = 'Error loading profile.';
+            }
+        }
+
+        function renderFollowButton(following) {
+            const section = document.getElementById('follow-section');
+            section.innerHTML = `
+                <button id="follow-toggle-btn"
+                    class="${following ? 'btn-unfollow' : 'btn-follow'}"
+                    onclick="toggleFollow()">
+                    ${following ? 'Unfollow' : 'Follow'}
+                </button>
+            `;
+        }
+
+        async function toggleFollow() {
+            const btn = document.getElementById('follow-toggle-btn');
+            const isFollowing = btn.className === 'btn-unfollow';
+            try {
+                const res = await fetch('/api/follow/' + encodeURIComponent(username), {
+                    method: isFollowing ? 'DELETE' : 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    renderFollowButton(!isFollowing);
+                }
+            } catch (e) {
+                console.error('Follow toggle failed', e);
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function doLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+
+        loadUserProfile();
+    </script>
+</body>
+</html>

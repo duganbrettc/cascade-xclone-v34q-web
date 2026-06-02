@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - Sign Up</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="card">
+            <h1>Sign Up</h1>
+            <form id="signup-form">
+                <div>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="new-password">
+                </div>
+                <button type="submit">Create Account</button>
+                <p id="error-msg" class="error"></p>
+            </form>
+            <p style="margin-top:16px">Already have an account? <a href="/login">Log in</a></p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', handleSubmit);
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errEl = document.getElementById('error-msg');
+            errEl.textContent = '';
+
+            try {
+                const res = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.status === 201) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.session_token);
+                    window.location.href = '/';
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    errEl.textContent = data.error || 'Signup failed. Username may already be taken.';
+                }
+            } catch (e) {
+                errEl.textContent = 'Network error. Please try again.';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XClone - Log In</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="card">
+            <h1>Log In</h1>
+            <form id="login-form">
+                <div>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit">Log In</button>
+                <p id="error-msg" class="error"></p>
+            </form>
+            <p style="margin-top:16px">No account? <a href="/signup">Sign up</a></p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', handleSubmit);
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errEl = document.getElementById('error-msg');
+            errEl.textContent = '';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.status === 200) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.session_token);
+                    window.location.href = '/';
+                } else {
+                    errEl.textContent = 'Invalid username or password.';
+                }
+            } catch (e) {
+                errEl.textContent = 'Network error. Please try again.';
+            }
+        }
+    </script>
+</body>
+</html>
